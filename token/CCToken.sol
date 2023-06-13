@@ -78,10 +78,7 @@ contract CCToken is ERC20, Ownable, ERC20Burnable {
     ) internal override {
         require(!isBlockedOf[from] && !isBlockedOf[to], "blocked!");
 
-        if (
-            (!isGuardedOf[from] && !isGuardedOf[to]) &&
-            (totalSupply() - amount) > 210000e18
-        ) {
+        if (!isGuardedOf[from] && !isGuardedOf[to]) {
             if (buyFee > 0 && isPairsOf[from]) {
                 uint256 buyFeeAmount = (amount * buyFee) / 1e12;
                 super._transfer(from, buyPreAddress, buyFeeAmount);
