@@ -99,6 +99,9 @@ contract EpochController is Ownable, IEpoch {
 
     function shareOutBonus() external checkStartTime checkEpoch {
         uint256 removeRadio = initRemoveRadio + getLastEpoch() * 0.0002e12;
+        if (removeRadio > 0.01e12) {
+            removeRadio = 0.01e12;
+        }
         uint256 _epoch = currentEpoch;
         uint256 totalLiquidity = (IERC20(pair).balanceOf(address(this)) *
             removeRadio) / 1e12;

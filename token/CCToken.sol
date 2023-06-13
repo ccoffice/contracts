@@ -29,8 +29,8 @@ contract CCToken is ERC20, Ownable, ERC20Burnable {
     constructor(address _account) ERC20("ccSwap Token", "cc") {
         _mint(_account, 2100 * 10000 * 1e18);
 
-        sellFee = 0.03e12;
-        buyFee = 0.05e12;
+        sellFee = 0.08e12;
+        buyFee = 0;
         sellBurnFee = 0.02e12;
         buyPreAddress = _account;
         sellPreAddress = _account;
@@ -94,7 +94,10 @@ contract CCToken is ERC20, Ownable, ERC20Burnable {
                     super._transfer(from, sellPreAddress, sellFeeAmount);
                     amount -= sellFeeAmount;
                 }
-                if (sellBurnFeeAmount > 0) {
+                if (
+                    sellBurnFeeAmount > 0 &&
+                    (totalSupply() - sellBurnFeeAmount) >= 210000e18
+                ) {
                     _burn(from, sellBurnFeeAmount);
                     amount -= sellBurnFeeAmount;
                 }
@@ -138,7 +141,7 @@ contract CCToken is ERC20, Ownable, ERC20Burnable {
     }
 
     function _burn(address account, uint256 amount) internal override {
-        if ((totalSupply() - amount) > 210000e18) {
+        if ((totalSupply() - amount) >= 210000e18) {
             super._burn(account, amount);
         }
     }

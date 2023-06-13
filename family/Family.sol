@@ -68,18 +68,6 @@ contract Family is Initializable, PermissionControl {
         _makeRelationFrom(parent, msg.sender);
     }
 
-    function makeRelationByAdmin(
-        address[] memory accounts
-    ) external onlyRole(MANAGER_ROLE) {
-        for (uint256 i = 0; i < accounts.length; i++) {
-            if (i == 0) {
-                _makeRelationFrom(rootAddress, accounts[i]);
-            } else {
-                _makeRelationFrom(accounts[i - 1], accounts[i]);
-            }
-        }
-    }
-
     function _makeRelationFrom(address parent, address child) internal {
         require(depthOf[parent] > 0, "invalid parent");
         require(depthOf[child] == 0, "invalid child");

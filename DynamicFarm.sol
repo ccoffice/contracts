@@ -73,8 +73,8 @@ contract DynamicFarm is Initializable, PermissionControl, IDynamicFarm {
         rewardToken = _rewardToken;
         family = _family;
         epoch = _epoch;
-        lNradios.push(NodeRadio({epoch: 0, radio: 2e12}));
-        hNradios.push(NodeRadio({epoch: 0, radio: 4e12}));
+        lNradios.push(NodeRadio({epoch: 0, radio: 1e12}));
+        hNradios.push(NodeRadio({epoch: 0, radio: 3e12}));
     }
 
     modifier lock() {
@@ -98,7 +98,7 @@ contract DynamicFarm is Initializable, PermissionControl, IDynamicFarm {
             lNodeRewardOfEpoch[currentEpoch].totalReward += totalReward;
         }
 
-        if (rewardType == RewardType.share) {
+        if (rewardType == RewardType.hNode) {
             hNodeRewardOfEpoch[currentEpoch].totalReward += totalReward;
         }
         reserve += totalReward;
@@ -160,7 +160,6 @@ contract DynamicFarm is Initializable, PermissionControl, IDynamicFarm {
         uint256 currentEpoch
     ) internal {
         uint256 oldT = user.powerT[currentEpoch];
-        address parent = IFamily(family).parentOf(userAddress);
         user.powerT[currentEpoch] =
             (user.powerB[currentEpoch] *
                 (1e12 +
@@ -176,7 +175,7 @@ contract DynamicFarm is Initializable, PermissionControl, IDynamicFarm {
         } else {
             shareRewardOfEpoch[currentEpoch].totalPower -= diff;
         }
-
+        address parent = IFamily(family).parentOf(userAddress);
         // 上级的N变化
         if (parent != address(0)) {
             // 更新上级的N值 以及全网N的统计结果

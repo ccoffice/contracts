@@ -32,11 +32,11 @@ contract StaticPool is
     }
     // 投入资产
     struct Capital {
-        address token;
-        uint256 radio;
-        uint256 minValueOnce;
-        address[] buyPath;
-        bool burnOrDead;
+        address token; // 资产代币
+        uint256 radio; // 每次投入的usdt去向pancke的比例
+        uint256 minValueOnce; // 单次最小投入额度
+        address[] buyPath; // 投入比例
+        bool burnOrDead; // 销毁形式
     }
 
     /// @notice 用户信息
@@ -198,62 +198,38 @@ contract StaticPool is
     }
 
     /**
-     * @notice 获得一定数量usdt需要提供的token
-     * @param token 卖出代币
-     * @param volumeUSD 获得usdt数量
-     */
-    function needToken(
-        address token,
-        uint256 volumeUSD
-    ) public view returns (uint256) {
-        address[] memory tmpPath = new address[](2);
-        tmpPath[0] = token;
-        tmpPath[1] = usdt;
-        uint256[] memory tokenOuts = ISwapRouter(panckRouter).getAmountsIn(
-            volumeUSD,
-            tmpPath
-        );
-        return tokenOuts[0];
-    }
-
-    /**
      * @notice 质押投入
      * @param token 质押主代币
-     * @param totalVolumeUSD  质押总价值(usdt) $amount:ether
+     * @param amount  usdt 数量 $amount:ether
      */
-    function deposit(address token, uint256 totalVolumeUSD) external lock {
+    function deposit(address token, uint256 amount) external lock {
         Capital memory tokenConfig = tokenConfigOf[token];
         require(token == tokenConfig.token, "StaticPool: INVALID_TOKEN!");
-        require(
-            totalVolumeUSD >= tokenConfig.minValueOnce,
-            "StaticPool: Too Low"
+        require(amount >= tokenConfig.minValueOnce, "StaticPool: Too Low");
+
+        IERC20Upgradeable(usdt).safeTransferFrom(
+            msg.sender,
+            address(this),
+            amount
         );
-        uint256 usdtAmount = ((1e12 - tokenConfig.radio) * totalVolumeUSD) /
-            1e12;
+        uint256 usdtPanckAmount = (tokenConfig.radio * amount) / 1e12;
+        uint256 usdtCCAmount = amount - usdtPanckAmount;
 
         uint256 liquidity;
-        uint256 burnAmount;
-        if (tokenConfig.radio > 0) {
-            uint256 tokenAmount = needToken(
-                token,
-                (totalVolumeUSD * tokenConfig.radio) / 1e12
-            );
-            if (tokenAmount > 0) {
-                IERC20Upgradeable(token).safeTransferFrom(
-                    msg.sender,
+
+        if (usdtPanckAmount > 0) {
+            ISwapRouter(panckRouter)
+                .swapExactTokensForTokensSupportingFeeOnTransferTokens(
+                    usdtPanckAmount,
+                    0,
+                    tokenConfig.buyPath,
                     address(this),
-                    tokenAmount
+                    block.timestamp
                 );
-            }
         }
 
-        if (usdtAmount > 0) {
-            IERC20Upgradeable(usdt).safeTransferFrom(
-                msg.sender,
-                address(this),
-                usdtAmount
-            );
-            uint256 usdtExpend = (usdtAmount * 6) / 10;
+        if (usdtCCAmount > 0) {
+            uint256 usdtExpend = (usdtCCAmount * 6) / 10;
             ISwapRouter(router)
                 .swapExactTokensForTokensSupportingFeeOnTransferTokens(
                     usdtExpend,
@@ -265,28 +241,28 @@ contract StaticPool is
             (, , liquidity) = ISwapRouter(router).addLiquidity(
                 usdt,
                 token,
-                usdtAmount - usdtExpend,
+                usdtCCAmount - usdtExpend,
                 IERC20Upgradeable(token).balanceOf(address(this)),
-                usdtAmount - usdtExpend,
+                usdtCCAmount - usdtExpend,
                 0,
                 epoch,
                 block.timestamp
             );
         }
 
-        burnAmount = IERC20Upgradeable(token).balanceOf(address(this));
+        uint256 burnAmount = IERC20Upgradeable(token).balanceOf(address(this));
         if (tokenConfig.burnOrDead) {
             IERC20Burn(token).burn(burnAmount);
         } else {
             IERC20Upgradeable(token).safeTransfer(address(0xdead), burnAmount);
         }
-        uint256 power = getPowerByUSDT(totalVolumeUSD);
+        uint256 power = getPowerByUSDT(amount);
         _deposit(msg.sender, power);
 
         emit Deposit(
             msg.sender,
             token,
-            totalVolumeUSD,
+            amount,
             liquidity,
             burnAmount,
             power,
